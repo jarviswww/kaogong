@@ -1,29 +1,22 @@
-<script setup>
-</script>
-
 <template>
-  <div id="app-root">
-    <h1>考公助手</h1>
-    <p>项目初始化成功</p>
-  </div>
+  <router-view />
+  <van-tabbar v-model="active" route>
+    <van-tabbar-item icon="home-o" to="/">首页</van-tabbar-item>
+    <van-tabbar-item icon="chart-trending-o" to="/xingce">行测</van-tabbar-item>
+    <van-tabbar-item icon="edit" to="/shenlun">申论</van-tabbar-item>
+    <van-tabbar-item icon="records-o" to="/records">记录</van-tabbar-item>
+    <van-tabbar-item icon="user-o" to="/profile">我的</van-tabbar-item>
+  </van-tabbar>
 </template>
 
-<style scoped>
-#app-root {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  gap: 16px;
-}
+<script setup>
+import { ref } from 'vue'
+const active = ref(0)
+</script>
 
-h1 {
-  color: var(--color-primary);
-  font-size: 24px;
-}
-
-p {
-  color: var(--color-text-secondary);
+<style>
+.view-container {
+  padding: 16px;
+  padding-bottom: 66px;
 }
 </style>
