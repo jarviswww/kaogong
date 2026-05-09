@@ -4,6 +4,7 @@
     <CountdownCard />
     <TodoPreview />
     <QuickActions @open-form="handleForm" />
+    <StudyCalendar />
     <CountdownForm v-model:show="forms.countdown" />
     <PracticeForm v-model:show="forms.practice" />
     <PaperForm v-model:show="forms.paper" />
@@ -25,6 +26,7 @@ import ClockHeader from '../components/home/ClockHeader.vue'
 import CountdownCard from '../components/home/CountdownCard.vue'
 import TodoPreview from '../components/home/TodoPreview.vue'
 import QuickActions from '../components/home/QuickActions.vue'
+import StudyCalendar from '../components/home/StudyCalendar.vue'
 import CountdownForm from '../components/forms/CountdownForm.vue'
 import PracticeForm from '../components/forms/PracticeForm.vue'
 import PaperForm from '../components/forms/PaperForm.vue'
