@@ -2,11 +2,18 @@
   <div class="daily-analysis">
     <div v-if="records.length === 0"><EmptyState text="暂无刷题数据" /></div>
     <template v-else>
-      <div class="chart-card"><div ref="accuracyChart" class="chart"></div></div>
-      <div class="chart-card"><div ref="volumeChart" class="chart"></div></div>
-      <div class="chart-card progress-card">
-        <div class="progress-label">本周刷题进度</div>
-        <div ref="progressChart" class="chart-sm"></div>
+      <div class="glass-card">
+        <div class="chart-title">各板块刷题量对比</div>
+        <div ref="barChart" class="chart"></div>
+      </div>
+      <div class="glass-card">
+        <div class="chart-header">
+          <span class="chart-title">分板块正确率趋势</span>
+          <van-dropdown-menu>
+            <van-dropdown-item v-model="selectedSubject" :options="subjectOptions" @change="renderLine" />
+          </van-dropdown-menu>
+        </div>
+        <div ref="lineChart" class="chart"></div>
       </div>
     </template>
   </div>
@@ -16,86 +23,67 @@
 import { ref, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { db } from '../../db/index.js'
+import { SUBJECTS, getSubjectColor } from '../../constants/subjects.js'
 import EmptyState from '../shared/EmptyState.vue'
 
 const records = ref([])
-const accuracyChart = ref(null)
-const volumeChart = ref(null)
-const progressChart = ref(null)
+const barChart = ref(null)
+const lineChart = ref(null)
+const selectedSubject = ref('资料分析')
+
+const subjectOptions = SUBJECTS.filter(s => s.name !== '申论').map(s => ({ text: s.name, value: s.name }))
+
+let barInstance = null
+let lineInstance = null
 
 onMounted(async () => {
   records.value = await db.daily_practice.orderBy('date').toArray()
   if (records.value.length === 0) return
   await nextTick()
-  renderAccuracy()
-  renderVolume()
-  renderProgress()
+  renderBar()
+  renderLine()
 })
 
-function renderAccuracy() {
-  const chart = echarts.init(accuracyChart.value)
-  const subjects = [...new Set(records.value.map(r => r.subject))]
-  const dates = [...new Set(records.value.map(r => r.date))].sort()
-  chart.setOption({
-    grid: { left: 40, right: 16, top: 30, bottom: 30 },
-    legend: { data: subjects, top: 0, textStyle: { fontSize: 11 } },
-    xAxis: { type: 'category', data: dates },
-    yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
-    series: subjects.map(s => ({
-      name: s, type: 'line', smooth: true,
-      data: dates.map(d => {
-        const r = records.value.find(x => x.date === d && x.subject === s)
-        return r ? Math.round(r.correctCount / r.totalCount * 100) : null
-      })
-    }))
+function renderBar() {
+  if (!barChart.value) return
+  if (!barInstance) barInstance = echarts.init(barChart.value)
+  const subjectMap = {}
+  records.value.forEach(r => {
+    subjectMap[r.subject] = (subjectMap[r.subject] || 0) + (r.totalCount || 0)
   })
-}
-
-function renderVolume() {
-  const chart = echarts.init(volumeChart.value)
-  const subjects = [...new Set(records.value.map(r => r.subject))]
-  const dates = [...new Set(records.value.map(r => r.date))].sort()
-  chart.setOption({
-    grid: { left: 40, right: 16, top: 30, bottom: 30 },
-    legend: { data: subjects, top: 0, textStyle: { fontSize: 11 } },
-    xAxis: { type: 'category', data: dates },
+  const names = Object.keys(subjectMap)
+  barInstance.setOption({
+    grid: { left: 40, right: 16, top: 10, bottom: 30 },
+    xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value' },
-    series: subjects.map(s => ({
-      name: s, type: 'bar', stack: 'total',
-      data: dates.map(d => {
-        const r = records.value.find(x => x.date === d && x.subject === s)
-        return r ? r.totalCount : 0
-      })
-    }))
-  })
+    series: [{
+      type: 'bar',
+      data: names.map(n => ({ value: subjectMap[n], itemStyle: { color: getSubjectColor(n) } }))
+    }]
+  }, true)
 }
 
-function renderProgress() {
-  const chart = echarts.init(progressChart.value)
-  const weekTotal = records.value.filter(r => {
-    const d = new Date(r.date)
-    const now = new Date()
-    const weekAgo = new Date(now - 7 * 86400000)
-    return d >= weekAgo
-  }).reduce((sum, r) => sum + r.totalCount, 0)
-  const goal = 200
-  chart.setOption({
+function renderLine() {
+  if (!lineChart.value) return
+  if (!lineInstance) lineInstance = echarts.init(lineChart.value)
+  const filtered = records.value.filter(r => r.subject === selectedSubject.value)
+  const xData = filtered.map(r => r.source || r.date)
+  const yData = filtered.map(r => r.totalCount > 0 ? Math.round(r.correctCount / r.totalCount * 100) : 0)
+  lineInstance.setOption({
+    grid: { left: 40, right: 16, top: 10, bottom: 30 },
+    xAxis: { type: 'category', data: xData, axisLabel: { fontSize: 10, rotate: 30 } },
+    yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
     series: [{
-      type: 'gauge', startAngle: 90, endAngle: -270, min: 0, max: goal,
-      pointer: { show: false },
-      progress: { show: true, width: 12, roundCap: true, itemStyle: { color: '#4A90D9' } },
-      axisLine: { lineStyle: { width: 12, color: [[1, '#E8E8E8']] } },
-      axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
-      detail: { formatter: `${weekTotal}/${goal}题`, fontSize: 14, offsetCenter: [0, 0] },
-      data: [{ value: Math.min(weekTotal, goal) }]
+      type: 'line', smooth: true, data: yData,
+      itemStyle: { color: getSubjectColor(selectedSubject.value) },
+      areaStyle: { color: getSubjectColor(selectedSubject.value) + '33' }
     }]
-  })
+  }, true)
 }
 </script>
 
 <style scoped>
-.chart-card { background: var(--color-card); border-radius: var(--radius-card); padding: 12px; margin-bottom: 12px; box-shadow: var(--shadow-card); }
 .chart { width: 100%; height: 220px; }
-.chart-sm { width: 100%; height: 160px; }
-.progress-label { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.chart-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; }
 </style>

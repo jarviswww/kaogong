@@ -22,7 +22,7 @@
           <van-button type="primary" native-type="submit" block round>保存</van-button>
         </div>
       </van-form>
-      <van-calendar v-model:show="showCalendar" @confirm="onDateConfirm" :min-date="new Date()" />
+      <van-calendar v-model:show="showCalendar" @confirm="onDateConfirm" :min-date="new Date()" :max-date="new Date(2030, 11, 31)" />
     </div>
   </van-popup>
 </template>

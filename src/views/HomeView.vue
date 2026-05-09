@@ -10,7 +10,7 @@
     <PaperForm v-model:show="forms.paper" />
     <EssayForm v-model:show="forms.essay" />
     <WrongQuestionForm v-model:show="forms.wrong" />
-    <QuickEntryForm v-model:show="forms.quickEntry" />
+    <QuickEntryForm v-model:show="forms.batch" />
     <van-action-sheet
       v-model:show="deleteSheet.show"
       :actions="deleteSheet.actions"
@@ -38,7 +38,7 @@ import { showConfirmDialog } from 'vant/es/dialog/function-call.mjs'
 
 const forms = reactive({
   countdown: false, practice: false, paper: false,
-  essay: false, wrong: false, quickEntry: false
+  essay: false, wrong: false, batch: false
 })
 
 const deleteSheet = reactive({ show: false, actions: [] })
@@ -50,7 +50,7 @@ function handleForm(type) {
   else if (type === 'paper') forms.paper = true
   else if (type === 'essay') forms.essay = true
   else if (type === 'wrong') forms.wrong = true
-  else if (type === 'quick-entry' || type === 'batch') forms.quickEntry = true
+  else if (type === 'batch') forms.batch = true
   else if (type === 'countdown-delete') handleDeleteCountdown()
 }
 

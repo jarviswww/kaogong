@@ -1,182 +1,59 @@
 <template>
   <van-popup v-model:show="show" position="bottom" round :style="{ maxHeight: '80%' }">
     <div class="form-container">
-      <div class="form-header">
-        <span class="form-title">快捷录入</span>
-        <van-icon name="cross" @click="close" />
+      <h3>批量添加任务</h3>
+      <van-form ref="formRef">
+        <van-field v-model="form.title" label="任务名" placeholder="输入任务内容" :rules="[{required:true}]" />
+        <van-field v-model="form.category" label="科目类型" readonly placeholder="选择科目" @click="showSubjectPicker = true">
+          <template #left-icon>
+            <span v-if="form.category" class="subject-dot" :style="{background: getSubjectColor(form.category)}"></span>
+          </template>
+        </van-field>
+        <van-field v-model="form.date" label="预计完成" readonly placeholder="选择日期" @click="showCal = true" />
+      </van-form>
+      <div class="btn-row">
+        <van-button type="primary" block @click="addAndContinue">添加任务</van-button>
+        <van-button block @click="show = false" style="margin-top:8px">完成</van-button>
       </div>
-
-      <!-- Template picker -->
-      <div v-if="!selectedTemplate" class="template-picker">
-        <div
-          v-for="tpl in templates"
-          :key="tpl.value"
-          class="template-item"
-          @click="selectedTemplate = tpl.value"
-        >
-          <van-icon :name="tpl.icon" size="22" color="var(--color-primary)" />
-          <span>{{ tpl.label }}</span>
-        </div>
-      </div>
-
-      <!-- 刷题 form -->
-      <van-form v-if="selectedTemplate === 'practice'" @submit="submitPractice">
-        <van-cell-group inset>
-          <van-field
-            v-model="practiceForm.subject"
-            is-link readonly label="科目" placeholder="请选择科目"
-            @click="showSubject = true" :rules="[{ required: true }]"
-          />
-          <van-field v-model="practiceForm.totalCount" type="digit" label="总题数" placeholder="请输入" :rules="[{ required: true }]" />
-          <van-field v-model="practiceForm.correctCount" type="digit" label="正确数" placeholder="请输入" :rules="[{ required: true }]" />
-          <van-field v-model="practiceForm.source" label="来源" placeholder="请输入来源" />
-        </van-cell-group>
-        <div class="form-actions">
-          <van-button type="primary" native-type="submit" block round>保存</van-button>
-        </div>
-      </van-form>
-
-      <!-- 看课 form -->
-      <van-form v-if="selectedTemplate === 'course'" @submit="submitCourse">
-        <van-cell-group inset>
-          <van-field v-model="courseForm.courseName" label="课程名称" placeholder="请输入课程名称" :rules="[{ required: true }]" />
-          <van-field v-model="courseForm.lectureNum" type="digit" label="节数" placeholder="请输入节数" :rules="[{ required: true }]" />
-          <van-field v-model="courseForm.duration" type="digit" label="用时(分钟)" placeholder="请输入用时" />
-        </van-cell-group>
-        <div class="form-actions">
-          <van-button type="primary" native-type="submit" block round>保存</van-button>
-        </div>
-      </van-form>
-
-      <!-- 做卷 form -->
-      <van-form v-if="selectedTemplate === 'paper'" @submit="submitPaper">
-        <van-cell-group inset>
-          <van-field v-model="paperForm.paperName" label="试卷名称" placeholder="请输入试卷名称" :rules="[{ required: true }]" />
-          <van-field v-model="paperForm.totalScore" type="digit" label="总分" placeholder="请输入总分" :rules="[{ required: true }]" />
-          <van-field v-model="paperForm.duration" type="digit" label="用时(分钟)" placeholder="请输入用时" />
-        </van-cell-group>
-        <div class="form-actions">
-          <van-button type="primary" native-type="submit" block round>保存</van-button>
-        </div>
-      </van-form>
-
-      <!-- 自定义 form -->
-      <van-form v-if="selectedTemplate === 'custom'" @submit="submitCustom">
-        <van-cell-group inset>
-          <van-field v-model="customForm.title" label="标题" placeholder="请输入待办标题" :rules="[{ required: true }]" />
-          <van-field v-model="customForm.content" type="textarea" label="内容" placeholder="请输入内容" rows="3" autosize />
-        </van-cell-group>
-        <div class="form-actions">
-          <van-button type="primary" native-type="submit" block round>保存</van-button>
-        </div>
-      </van-form>
-
-      <van-action-sheet
-        v-model:show="showSubject"
-        :actions="subjectActions"
-        @select="onSubjectSelect"
-        cancel-text="取消"
-      />
+      <div v-if="addedCount > 0" class="added-hint">已添加 {{ addedCount }} 个任务</div>
     </div>
+    <van-action-sheet v-model:show="showSubjectPicker" :actions="subjectActions" @select="onSubjectSelect" />
+    <van-calendar v-model:show="showCal" @confirm="onDateConfirm" :max-date="maxDate" />
   </van-popup>
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
-import { showToast } from 'vant'
-import { db } from '../../db/index.js'
+import { ref, reactive } from 'vue'
 import { useTodoStore } from '../../stores/todo.js'
+import { SUBJECTS, getSubjectColor } from '../../constants/subjects.js'
+import { showToast } from 'vant'
 
 const show = defineModel('show', { type: Boolean })
-const selectedTemplate = ref('')
-const showSubject = ref(false)
+const store = useTodoStore()
+const showSubjectPicker = ref(false)
+const showCal = ref(false)
+const addedCount = ref(0)
+const maxDate = new Date(2030, 11, 31)
+const form = reactive({ title: '', category: '', date: '' })
 
-const templates = [
-  { value: 'practice', label: '刷题', icon: 'records' },
-  { value: 'course', label: '看课', icon: 'video-o' },
-  { value: 'paper', label: '做卷', icon: 'bar-chart-o' },
-  { value: 'custom', label: '自定义', icon: 'edit' }
-]
+const subjectActions = SUBJECTS.map(s => ({ name: s.name, color: s.color }))
 
-const subjectActions = [
-  { name: '言语' }, { name: '数量' }, { name: '判断' }, { name: '资料' }, { name: '常识' }
-]
+function onSubjectSelect(action) { form.category = action.name; showSubjectPicker.value = false }
+function onDateConfirm(date) { form.date = date.toISOString().slice(0, 10); showCal.value = false }
 
-const practiceForm = reactive({ subject: '', totalCount: '', correctCount: '', source: '' })
-const courseForm = reactive({ courseName: '', lectureNum: '', duration: '' })
-const paperForm = reactive({ paperName: '', totalScore: '', duration: '' })
-const customForm = reactive({ title: '', content: '' })
-
-const today = new Date().toISOString().slice(0, 10)
-
-function onSubjectSelect(action) {
-  practiceForm.subject = action.name
-  showSubject.value = false
-}
-
-function close() {
-  selectedTemplate.value = ''
-  show.value = false
-}
-
-watch(show, (val) => { if (!val) selectedTemplate.value = '' })
-
-async function submitPractice() {
-  await db.daily_practice.add({
-    date: today, subject: practiceForm.subject,
-    totalCount: Number(practiceForm.totalCount),
-    correctCount: Number(practiceForm.correctCount),
-    source: practiceForm.source, duration: 0, createdAt: Date.now()
-  })
-  showToast('刷题记录已保存')
-  Object.assign(practiceForm, { subject: '', totalCount: '', correctCount: '', source: '' })
-  close()
-}
-
-async function submitCourse() {
-  await db.study_records.add({
-    date: today, category: '看课',
-    subject: courseForm.courseName,
-    lectureNum: Number(courseForm.lectureNum),
-    duration: Number(courseForm.duration) || 0,
-    createdAt: Date.now()
-  })
-  showToast('学习记录已保存')
-  Object.assign(courseForm, { courseName: '', lectureNum: '', duration: '' })
-  close()
-}
-
-async function submitPaper() {
-  await db.exam_papers.add({
-    date: today, paperName: paperForm.paperName,
-    totalScore: Number(paperForm.totalScore),
-    duration: Number(paperForm.duration) || 0,
-    type: '模拟', yanyu: 0, shuliang: 0, panduan: 0, ziliao: 0, changshi: 0,
-    createdAt: Date.now()
-  })
-  showToast('试卷记录已保存')
-  Object.assign(paperForm, { paperName: '', totalScore: '', duration: '' })
-  close()
-}
-
-async function submitCustom() {
-  const todoStore = useTodoStore()
-  await todoStore.add({ date: today, title: customForm.title, category: '自定义', content: customForm.content })
-  showToast('待办已添加')
-  Object.assign(customForm, { title: '', content: '' })
-  close()
+async function addAndContinue() {
+  if (!form.title || !form.category || !form.date) { showToast('请填写完整'); return }
+  await store.add({ title: form.title, category: form.category, subject: form.category, date: form.date })
+  addedCount.value++
+  form.title = ''
+  showToast('已添加')
 }
 </script>
 
 <style scoped>
-.form-container { padding: 16px; }
-.form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.form-title { font-size: 16px; font-weight: 600; }
-.form-actions { margin-top: 20px; padding: 0 16px; }
-.template-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
-.template-item {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 16px 8px; background: var(--color-bg); border-radius: var(--radius-card);
-  border: 1px solid var(--color-border); font-size: 13px;
-}
+.form-container { padding: 20px; }
+.form-container h3 { margin-bottom: 16px; font-size: 16px; }
+.btn-row { margin-top: 16px; }
+.added-hint { text-align: center; margin-top: 12px; font-size: 13px; color: var(--color-text-secondary); }
+.subject-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 </style>

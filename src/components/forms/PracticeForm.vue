@@ -1,76 +1,40 @@
 <template>
   <van-popup v-model:show="show" position="bottom" round :style="{ maxHeight: '80%' }">
     <div class="form-container">
-      <div class="form-header">
-        <span class="form-title">刷题记录</span>
-        <van-icon name="cross" @click="show = false" />
-      </div>
+      <h3>刷题记录</h3>
       <van-form @submit="onSubmit">
-        <van-cell-group inset>
-          <van-field
-            v-model="form.date"
-            is-link
-            readonly
-            label="日期"
-            placeholder="请选择日期"
-            @click="showCalendar = true"
-            :rules="[{ required: true }]"
-          />
-          <van-field
-            v-model="form.subject"
-            is-link
-            readonly
-            label="科目"
-            placeholder="请选择科目"
-            @click="showSubject = true"
-            :rules="[{ required: true }]"
-          />
-          <van-field v-model="form.totalCount" type="digit" label="总题数" placeholder="请输入总题数" :rules="[{ required: true }]" />
-          <van-field v-model="form.correctCount" type="digit" label="正确数" placeholder="请输入正确数" :rules="[{ required: true }]" />
-          <van-field v-model="form.duration" type="digit" label="用时(分钟)" placeholder="请输入用时" />
-          <van-field v-model="form.source" label="来源" placeholder="请输入题目来源" />
-        </van-cell-group>
-        <div class="form-actions">
-          <van-button type="primary" native-type="submit" block round>保存</van-button>
-        </div>
+        <van-field v-model="form.content" label="刷题内容" placeholder="如：粉笔言语专项" :rules="[{required:true}]" />
+        <van-field v-model="form.date" label="刷题日期" readonly placeholder="选择日期" @click="showCal = true" />
+        <van-field v-model="form.subject" label="所属板块" readonly placeholder="选择科目" @click="showSubjectPicker = true">
+          <template #left-icon>
+            <span v-if="form.subject" class="subject-dot" :style="{background: getSubjectColor(form.subject)}"></span>
+          </template>
+        </van-field>
+        <van-field v-model="form.totalCount" label="总题量" type="digit" placeholder="输入数字" :rules="[{required:true}]" />
+        <van-field v-model="form.correctCount" label="正确题数" type="digit" placeholder="输入数字" :rules="[{required:true}]" />
+        <van-field v-model="form.duration" label="用时(分钟)" type="digit" placeholder="输入数字" :rules="[{required:true}]" />
+        <van-button type="primary" native-type="submit" block style="margin-top:16px">提交</van-button>
       </van-form>
-      <van-calendar v-model:show="showCalendar" @confirm="onDateConfirm" />
-      <van-action-sheet
-        v-model:show="showSubject"
-        :actions="subjectActions"
-        @select="onSubjectSelect"
-        cancel-text="取消"
-      />
     </div>
+    <van-action-sheet v-model:show="showSubjectPicker" :actions="subjectActions" @select="onSubjectSelect" />
+    <van-calendar v-model:show="showCal" @confirm="onDateConfirm" />
   </van-popup>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
-import { showToast } from 'vant'
+import { ref, reactive } from 'vue'
 import { db } from '../../db/index.js'
+import { SUBJECTS, getSubjectColor } from '../../constants/subjects.js'
+import { showToast } from 'vant'
 
 const show = defineModel('show', { type: Boolean })
-const showCalendar = ref(false)
-const showSubject = ref(false)
+const showSubjectPicker = ref(false)
+const showCal = ref(false)
+const form = reactive({ content: '', date: new Date().toISOString().slice(0, 10), subject: '', totalCount: '', correctCount: '', duration: '' })
 
-const subjectActions = [
-  { name: '言语' }, { name: '数量' }, { name: '判断' }, { name: '资料' }, { name: '常识' }
-]
-
-const form = reactive({
-  date: '', subject: '', totalCount: '', correctCount: '', duration: '', source: ''
-})
-
-function onDateConfirm(date) {
-  form.date = date.toISOString().slice(0, 10)
-  showCalendar.value = false
-}
-
-function onSubjectSelect(action) {
-  form.subject = action.name
-  showSubject.value = false
-}
+const subjectActions = SUBJECTS.map(s => ({ name: s.name, color: s.color }))
+function onSubjectSelect(action) { form.subject = action.name; showSubjectPicker.value = false }
+function onDateConfirm(date) { form.date = date.toISOString().slice(0, 10); showCal.value = false }
 
 async function onSubmit() {
   await db.daily_practice.add({
@@ -78,25 +42,20 @@ async function onSubmit() {
     subject: form.subject,
     totalCount: Number(form.totalCount),
     correctCount: Number(form.correctCount),
-    duration: Number(form.duration) || 0,
-    source: form.source,
+    duration: Number(form.duration),
+    source: form.content,
+    notes: '',
     createdAt: Date.now()
   })
-  await db.calendar_events.add({
-    date: form.date,
-    category: '刷题',
-    title: `${form.subject} ${form.totalCount}题`,
-    createdAt: Date.now()
-  })
-  showToast('刷题记录已保存')
-  Object.assign(form, { date: '', subject: '', totalCount: '', correctCount: '', duration: '', source: '' })
+  await db.calendar_events.add({ date: form.date, content: `刷题：${form.content}`, category: form.subject, createdAt: Date.now() })
+  showToast('提交成功')
+  form.content = ''; form.totalCount = ''; form.correctCount = ''; form.duration = ''
   show.value = false
 }
 </script>
 
 <style scoped>
-.form-container { padding: 16px; }
-.form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.form-title { font-size: 16px; font-weight: 600; }
-.form-actions { margin-top: 20px; padding: 0 16px; }
+.form-container { padding: 20px; }
+.form-container h3 { margin-bottom: 16px; font-size: 16px; }
+.subject-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 </style>

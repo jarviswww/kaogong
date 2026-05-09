@@ -68,7 +68,7 @@ async function load() { allTodos.value = await db.todos.orderBy('date').reverse(
 async function toggle(t) { await db.todos.update(t.id, { completed: t.completed }); await load() }
 async function remove(id) { await db.todos.delete(id); await load() }
 async function addTodo() {
-  await db.todos.add({ ...form, completed: false, priority: 2, createdAt: Date.now() })
+  await db.todos.add({ ...form, completed: false, status: '未开始', elapsedTime: 0, actualCompletedAt: null, createdAt: Date.now() })
   showAdd.value = false; form.title = ''; await load()
 }
 

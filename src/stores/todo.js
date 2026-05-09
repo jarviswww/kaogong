@@ -9,23 +9,29 @@ export const useTodoStore = defineStore('todo', () => {
     todos.value = await db.todos.where('date').equals(date).toArray()
   }
 
-  async function add(todo) {
-    await db.todos.add({ ...todo, completed: false, createdAt: Date.now() })
-    await loadByDate(todo.date)
+  async function loadAll() {
+    todos.value = await db.todos.orderBy('date').reverse().toArray()
   }
 
-  async function toggle(id) {
-    const item = await db.todos.get(id)
-    await db.todos.update(id, { completed: !item.completed })
-    await loadByDate(item.date)
+  async function add(todo) {
+    await db.todos.add({
+      ...todo,
+      completed: false,
+      status: '未开始',
+      elapsedTime: 0,
+      actualCompletedAt: null,
+      createdAt: Date.now()
+    })
   }
 
   async function remove(id) {
-    const item = await db.todos.get(id)
-    const date = item.date
     await db.todos.delete(id)
-    await loadByDate(date)
   }
 
-  return { todos, loadByDate, add, toggle, remove }
+  async function reload(date) {
+    if (date) await loadByDate(date)
+    else await loadAll()
+  }
+
+  return { todos, loadByDate, loadAll, add, remove, reload }
 })

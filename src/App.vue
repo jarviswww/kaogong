@@ -19,4 +19,13 @@ const active = ref(0)
   padding: 16px;
   padding-bottom: 66px;
 }
+.van-tabbar {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+.van-tabbar-item--active {
+  color: var(--color-primary) !important;
+}
 </style>
