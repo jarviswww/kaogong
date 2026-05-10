@@ -15,17 +15,33 @@ const active = ref(0)
 </script>
 
 <style>
+html, body {
+  background: #f5f7fa !important;
+  min-height: 100vh;
+  margin: 0;
+}
+
+#app {
+  background: transparent !important;
+  min-height: 100vh;
+}
+
 .view-container {
   padding: 16px;
   padding-bottom: 66px;
+  background: transparent;
 }
+
 .van-tabbar {
-  background: rgba(255, 255, 255, 0.8) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+  background: #ffffff !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
 }
+
 .van-tabbar-item--active {
   color: var(--color-primary) !important;
+}
+
+.van-cell, .van-field {
+  background: transparent !important;
 }
 </style>
